@@ -1,0 +1,52 @@
+trigger:
+- main
+
+strategy:
+  matrix:
+    jdk10_linux:
+      imageName: "ubuntu-latest"
+      jdkVersion: "1.10"
+    jdk11_windows:
+      imageName: "windows-latest"
+      jdkVersion: "1.11"
+  maxParallel: 2
+
+pool:
+  vmImage: $(imageName)
+
+jobs:
+- job: Build
+  steps:
+  - task: Maven@4
+    inputs:
+      mavenPomFile: "pom.xml"
+      mavenOptions: "-Xmx3072m"
+      javaHomeOption: "JDKVersion"
+      jdkVersionOption: $(jdkVersion)
+      jdkArchitectureOption: "x64"
+      goals: "package"
+      publishJUnitResults: false
+
+- job: Test
+  dependsOn: Build
+  steps:
+  - task: Maven@4
+    inputs:
+      mavenPomFile: "pom.xml"
+      mavenOptions: "-Xmx3072m"
+      javaHomeOption: "JDKVersion"
+      jdkVersionOption: $(jdkVersion)
+      jdkArchitectureOption: "x64"
+      goals: "test"
+      publishJUnitResults: true
+      testResultsFiles: "**/TEST-*.xml"
+
+- job: Deploy
+  dependsOn: Test
+  steps:
+  - task: AzureRmWebAppDeployment@4
+    inputs:
+      azureSubscription: '43689ead-607b-4f9f-b19a-b1fc577ef83f'
+      appName: 'az400test2'
+      package: '$(System.DefaultWorkingDirectory)/**/*.jar'
+      deploymentMethod: 'zipDeploy'
